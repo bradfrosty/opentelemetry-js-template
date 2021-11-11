@@ -1,11 +1,13 @@
 import { context, trace } from '@opentelemetry/api';
 
+const tracer = trace.getTracer('default');
+
 const addClickListener = (id: string, cb?: () => void) => {
-  document.addEventListener('click', () => {
+  document.addEventListener('click', context.bind(context.active(), () => {
     console.log('%c Click: Listener ' + id, 'font-weight: bold');
     trace.getSpan(context.active())?.setAttribute('handler.id', id);
     if (cb) cb();
-  });
+  }));
 };
 
 const render = () => {
@@ -32,24 +34,23 @@ const setupListeners = () => {
   addClickListener('3');
 
   // Ideally, they are automatically grouped together or form a parent relationship
-  // Listener level granularity is fine so long as they can be related easily
-  // Since listeners could be established anywhere, difficult to group.
-  const tracer = trace.getTracer('default');
-  const span = tracer.startSpan('grouped click');
-  const ctx = trace.setSpan(context.active(), span);
-  for (let i = 0; i < 4; i++) {
-    addClickListener(
-      'Grouped ' + i,
-      context.bind(ctx, () => {
-        // end wrapper span after final click listener executes, deferring to next macro cycle
-        if (i >= 3) {
-          setTimeout(() => {
-            span.end();
-          });
-        }
-      })
-    );
-  }
+  // Even with a manual instrumentation such as this, it does not form a parent relationship.
+  // Weirdly, when you inspect zones directly, you can see that the zone relationship is correct.
+  tracer.startActiveSpan('grouped click', async (span) => {
+    return new Promise<void>(resolve => {
+      for (let i = 0; i < 4; i++) {
+        addClickListener(
+          'Grouped ' + i,
+          () => {
+            if (i >= 3) {
+              span.end();
+              resolve();
+            }
+          },
+        );
+      }
+    });
+  });
 };
 
 export const app = () => {

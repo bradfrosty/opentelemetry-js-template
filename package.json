@@ -5,9 +5,10 @@
   "license": "MIT",
   "scripts": {
     "prebuild": "node prebuild.js",
-    "build": "yarn prebuild && esbuild src/index.ts --target=es2017 --bundle --minify --sourcemap --outfile=dist/index.js",
-    "start": "http-server dist -oc 1",
-    "postinstall": "yarn build && yarn start"
+    "build": "npm run prebuild && esbuild src/index.ts --bundle --sourcemap=inline --outdir=dist",
+    "start": "http-server dist -oc 1 & wait",
+    "dev": "npm run build -- --servedir=dist",
+    "postinstall": "npm run build && npm start"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.0.0",
